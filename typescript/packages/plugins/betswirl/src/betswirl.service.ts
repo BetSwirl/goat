@@ -102,7 +102,7 @@ async function getChainlinkVrfCost(walletClient: EVMWalletClient, gameAddress: H
 async function placeBet(
     walletClient: EVMWalletClient,
     game: CASINO_GAME_TYPE,
-    gameParams: Array<DiceNumber | Boolean>,
+    gameParams: Array<DiceNumber | boolean>,
     casinoGameParams: {
         betAmount: bigint;
         betToken: Hex;
