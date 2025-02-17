@@ -5,17 +5,18 @@ import { type Hex } from "viem";
 
 import {
     CASINO_GAME_TYPE,
+    type CasinoChainId,
     CoinToss,
     Dice,
     DiceNumber,
+    bankAbi,
     casinoChainById,
     casinoGameAbi,
     generatePlayGameFunctionData,
+    maxHarcodedBetCountByType,
 } from "@betswirl/sdk-core";
 
 import { CoinTossBetParameters, DiceBetParameters, GetBetParameters, gasTokenAddress } from "./parameters";
-
-type CasinoChainId = keyof typeof casinoChainById;
 
 export class BetSwirlService {
     @Tool({
@@ -27,6 +28,7 @@ export class BetSwirlService {
             walletClient,
             CASINO_GAME_TYPE.COINTOSS,
             [CoinToss.encodeInput(parameters.face)],
+            CoinToss.getMultiplier(parameters.face),
             getCasinoGameParameters(walletClient.getAddress(), parameters),
         );
 
@@ -46,10 +48,12 @@ export class BetSwirlService {
         description: "Roll a dice",
     })
     async diceBet(walletClient: EVMWalletClient, parameters: DiceBetParameters) {
+        const cap = parameters.cap as DiceNumber;
         const hash = await placeBet(
             walletClient,
             CASINO_GAME_TYPE.DICE,
-            [Dice.encodeInput(parameters.cap as DiceNumber)],
+            [Dice.encodeInput(cap)],
+            Dice.getMultiplier(cap),
             getCasinoGameParameters(walletClient.getAddress(), parameters),
         );
 
@@ -72,6 +76,8 @@ function getCasinoGameParameters(
         betAmount: bigint;
         betCount?: number;
         receiver?: string;
+        stopGain?: bigint;
+        stopLoss?: bigint;
     },
 ) {
     return {
@@ -79,7 +85,31 @@ function getCasinoGameParameters(
         betToken: (params.token as Hex) || gasTokenAddress,
         betCount: params.betCount || 1,
         receiver: (params.receiver || accountAddress) as Hex,
+        stopGain: params.stopGain || 0n,
+        stopLoss: params.stopLoss || 0n,
     };
+}
+
+async function getBetRequirements(
+    walletClient: EVMWalletClient,
+    game: CASINO_GAME_TYPE,
+    betToken: Hex,
+    multiplier: number,
+) {
+    try {
+        const { value: rawBetRequirements } = (await walletClient.read({
+            address: casinoChainById[walletClient.getChain().id as CasinoChainId].contracts.bank,
+            functionName: "getBetRequirements",
+            args: [betToken, BigInt(multiplier)],
+            abi: bankAbi,
+        })) as { value: string[] };
+        return {
+            maxBetAmount: BigInt(rawBetRequirements[1]),
+            maxBetCount: Math.min(Number(rawBetRequirements[2]), maxHarcodedBetCountByType[game]),
+        };
+    } catch (error) {
+        throw new Error(`An error occured while getting the bet requirements: ${error}`);
+    }
 }
 
 async function getChainlinkVrfCost(walletClient: EVMWalletClient, gameAddress: Hex, betToken: Hex, betCount: number) {
@@ -103,11 +133,14 @@ async function placeBet(
     walletClient: EVMWalletClient,
     game: CASINO_GAME_TYPE,
     gameParams: Array<DiceNumber | boolean>,
+    gameMultiplier: number,
     casinoGameParams: {
         betAmount: bigint;
         betToken: Hex;
         betCount: number;
         receiver: Hex;
+        stopGain: bigint;
+        stopLoss: bigint;
     },
 ) {
     const chainId = walletClient.getChain().id as CasinoChainId;
@@ -115,6 +148,14 @@ async function placeBet(
     if (!gameAddress) {
         throw new Error(`${game} isn't available on the chain id ${chainId}`);
     }
+    const betRequirements = await getBetRequirements(walletClient, game, casinoGameParams.betToken, gameMultiplier);
+    if (casinoGameParams.betAmount > betRequirements.maxBetAmount) {
+        throw new Error(`Bet amount should be less than ${betRequirements.maxBetAmount}`);
+    }
+    if (casinoGameParams.betCount > betRequirements.maxBetCount) {
+        throw new Error(`Bet count should be less than ${betRequirements.maxBetCount}`);
+    }
+
     const vrfCost = await getChainlinkVrfCost(
         walletClient,
         gameAddress,
@@ -129,11 +170,14 @@ async function placeBet(
             gameEncodedExtraParams: gameParams,
             receiver: casinoGameParams.receiver,
 
-            // betCount: betCount,
-            // token: parameters.token,
-            // stopGain: parameters.stopGain,
-            // stopLoss: parameters.stopLoss,
-            // affiliate: parameters.affiliate as Hex,
+            betCount: casinoGameParams.betCount,
+            // token: {
+            //     address: casinoGameParams.betToken
+            //     symbol
+            //     decimals
+            // },
+            stopGain: casinoGameParams.stopGain,
+            stopLoss: casinoGameParams.stopLoss,
         },
         chainId,
     );
