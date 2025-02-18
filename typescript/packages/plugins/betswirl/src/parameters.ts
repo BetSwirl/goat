@@ -19,7 +19,6 @@ const casinoBetParams = {
     stopGain: z.bigint().positive().optional().describe("The profit amount to stop betting"),
     stopLoss: z.bigint().positive().optional().describe("The loss amount to stop betting"),
     receiver: hexAddress.optional().describe("The payout receiver address"),
-    affiliate: hexAddress.optional().describe("The payout receiver address"),
 };
 
 export class CoinTossBetParameters extends createToolParameters(
@@ -32,6 +31,13 @@ export class CoinTossBetParameters extends createToolParameters(
 export class DiceBetParameters extends createToolParameters(
     z.object({
         cap: z.number().positive().max(99).describe("The number above which you win"),
+        ...casinoBetParams,
+    }),
+) {}
+
+export class RouletteBetParameters extends createToolParameters(
+    z.object({
+        numbers: z.number().positive().max(36).array().describe("The roulette numbers"),
         ...casinoBetParams,
     }),
 ) {}

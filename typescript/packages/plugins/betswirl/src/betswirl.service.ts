@@ -9,16 +9,67 @@ import {
     CoinToss,
     Dice,
     DiceNumber,
+    Roulette,
+    RouletteNumber,
     bankAbi,
     casinoChainById,
+    casinoChains,
     casinoGameAbi,
     generatePlayGameFunctionData,
     maxHarcodedBetCountByType,
 } from "@betswirl/sdk-core";
 
-import { CoinTossBetParameters, DiceBetParameters, GetBetParameters, gasTokenAddress } from "./parameters";
+import {
+    CoinTossBetParameters,
+    DiceBetParameters,
+    GetBetParameters,
+    RouletteBetParameters,
+    gasTokenAddress,
+} from "./parameters";
+
+type BankrollToken = {
+    tokenAddress: string;
+    symbol: string;
+    decimals: number;
+    token: {
+        allowed: boolean;
+        paused: boolean;
+    };
+};
 
 export class BetSwirlService {
+    @Tool({
+        name: "betswirl.getBetTokens",
+        description: "List tokens available for betting on the games",
+    })
+    async getBetTokens(walletClient: EVMWalletClient) {
+        const chainId = walletClient.getChain().id as CasinoChainId;
+        const casinoChain = casinoChains.find((casinoChain) => casinoChain.id === chainId);
+        if (!casinoChain) {
+            throw new Error(`Chain id ${chainId} not found`);
+        }
+        try {
+            const { value: rawTokens } = (await walletClient.read({
+                address: casinoChainById[chainId].contracts.bank,
+                functionName: "getTokens",
+                abi: bankAbi,
+            })) as { value: BankrollToken[] };
+
+            return rawTokens
+                .filter((rawToken) => rawToken.token.allowed && !rawToken.token.paused)
+                .map((rawToken) => ({
+                    address: rawToken.tokenAddress,
+                    symbol:
+                        rawToken.tokenAddress === gasTokenAddress
+                            ? casinoChain.viemChain.nativeCurrency.symbol
+                            : rawToken.symbol,
+                    decimals: rawToken.decimals,
+                }));
+        } catch (error) {
+            throw new Error(`Error getting bankroll tokens: ${error}`);
+        }
+    }
+
     @Tool({
         name: "betswirl.coinTossBet",
         description: "Flip a coin",
@@ -65,6 +116,31 @@ export class BetSwirlService {
         description: "Get the resolved Dice bet",
     })
     async getDiceBet(parameters: GetBetParameters) {
+        // return fetchCasinoBet(parameters.hash)
+    }
+
+    @Tool({
+        name: "betswirl.rouletteBet",
+        description: "Bet on roulette outcomes",
+    })
+    async rouletteBet(walletClient: EVMWalletClient, parameters: RouletteBetParameters) {
+        const numbers = parameters.numbers as RouletteNumber[];
+        const hash = await placeBet(
+            walletClient,
+            CASINO_GAME_TYPE.ROULETTE,
+            [Roulette.encodeInput(numbers)],
+            Roulette.getMultiplier(numbers),
+            getCasinoGameParameters(walletClient.getAddress(), parameters),
+        );
+
+        return hash;
+    }
+
+    @Tool({
+        name: "betswirl.getRouletteBet",
+        description: "Get the resolved Roulette bet",
+    })
+    async getRouletteBet(parameters: GetBetParameters) {
         // return fetchCasinoBet(parameters.hash)
     }
 }
@@ -132,7 +208,7 @@ async function getChainlinkVrfCost(walletClient: EVMWalletClient, gameAddress: H
 async function placeBet(
     walletClient: EVMWalletClient,
     game: CASINO_GAME_TYPE,
-    gameParams: Array<DiceNumber | boolean>,
+    gameParams: Array<boolean | DiceNumber | number>,
     gameMultiplier: number,
     casinoGameParams: {
         betAmount: bigint;
