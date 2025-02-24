@@ -1,6 +1,7 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
 from .parameters import (
-    SignTypedDataRequest, AdminSigner, Call, CoreSignerType
+    SignTypedDataRequest, AdminSigner, Call, WalletType,
+    SolanaSmartWalletTransactionParams, DelegatedSignerPermission
 )
 import requests
 import json
@@ -67,18 +68,18 @@ class CrossmintWalletsAPI:
     
     def create_smart_wallet(
         self,
+        wallet_type: WalletType,
         admin_signer: Optional[AdminSigner] = None,
         email: Optional[str] = None,
         user_id: Optional[str] = None,
-        chain: str = "base-sepolia"
     ) -> Dict[str, Any]:
-        """Create a new EVM smart wallet.
+        """Create a new smart wallet.
         
         Args:
+            wallet_type: Type of smart wallet (EVM_SMART_WALLET or SOLANA_SMART_WALLET)
             admin_signer: Optional admin signer configuration
             email: Optional email to link the wallet to
             user_id: Optional user ID to link the wallet to
-            chain: Chain identifier (default: ethereum)
         
         Returns:
             Wallet creation response
@@ -91,12 +92,15 @@ class CrossmintWalletsAPI:
             
         linked_user = f"email:{email}" if email else f"userId:{user_id}"
         payload = {
-            "type": "evm-smart-wallet",
+            "type": wallet_type.value,
             "config": {
                 "adminSigner": admin_signer.model_dump() if admin_signer else None
             },
             "linkedUser": linked_user
         }
+        
+        if admin_signer:
+            payload["config"]["adminSigner"] = admin_signer.model_dump()
         
         return self._request("/wallets", method="POST", json=payload)
     
@@ -161,29 +165,43 @@ class CrossmintWalletsAPI:
         wallet_address: str,
         message: str,
         chain: str,
-        signer: Optional[str] = None
+        signer: Optional[str] = None,
+        required_signers: Optional[List[str]] = None
     ) -> Dict[str, Any]:
-        """Sign a message using an EVM smart wallet.
+        """Sign a message using a smart wallet.
         
         Args:
             wallet_address: Wallet address
             message: Message to sign
             chain: Chain identifier
             signer: Optional signer address
+            required_signers: Optional list of additional required signers
         
         Returns:
             Signature response
         """
         endpoint = f"/wallets/{quote(wallet_address)}/signatures"
-        payload = {
-            "type": "evm-message",
-            "params": {
-                "message": message,
-                "signer": signer,
-                "chain": chain
-            }
-        }
         
+        if chain == "solana":
+            payload = {
+                "type": "solana-message",
+                "params": {
+                    "message": message,
+                    "requiredSigners": required_signers,
+                    "signer": signer
+                }
+            }
+        else:
+            payload = {
+                "type": "evm-message",
+                "params": {
+                    "message": message,
+                    "signer": signer,
+                    "chain": chain
+                }
+            }
+        
+        payload["params"] = {k: v for k, v in payload["params"].items() if v is not None}
         return self._request(endpoint, method="POST", json=payload)
     
     def sign_typed_data_for_smart_wallet(
@@ -235,27 +253,33 @@ class CrossmintWalletsAPI:
         self,
         signature_id: str,
         locator: str,
-        signer: str,
-        signature: str
+        signer: Optional[str] = None,
+        signature: Optional[str] = None,
+        approvals: Optional[List[Dict[str, str]]] = None
     ) -> Dict[str, Any]:
-        """Approve a signature request for an EVM smart wallet.
+        """Approve a signature request for a smart wallet.
         
         Args:
             signature_id: ID of the signature request
             locator: Wallet locator string
-            signer: Signer identifier
-            signature: Signature value
+            signer: Optional signer identifier
+            signature: Optional signature value
+            approvals: Optional list of approval objects with signer and signature
         
         Returns:
             Approval response
         """
-        endpoint = f"/wallets/{quote(locator)}/signatures/{quote(signature_id)}/approvals"
-        payload = {
-            "approvals": [{
-                "signer": signer,
-                "signature": signature
-            }]
-        }
+        endpoint = f"/wallets/{quote(locator)}/signatures/{quote(signature_id)}/approve"
+        payload = {}
+        
+        if approvals:
+            endpoint = f"/wallets/{quote(locator)}/signatures/{quote(signature_id)}/approvals"
+            payload = {"approvals": approvals}
+        else:
+            if signature:
+                payload["signature"] = signature
+            if signer:
+                payload["signer"] = signer
         
         return self._request(endpoint, method="POST", json=payload)
     
@@ -281,10 +305,70 @@ class CrossmintWalletsAPI:
         
         return self._request(endpoint, method="POST", json=payload)
     
+    def create_transaction(
+        self,
+        wallet_locator: str,
+        transaction: str,
+        required_signers: Optional[List[str]] = None,
+        signer: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Create a new Solana transaction.
+        
+        Args:
+            wallet_locator: Wallet identifier
+            transaction: Base58 encoded serialized Solana transaction
+            required_signers: Optional list of additional required signers
+            signer: Optional signer locator (defaults to admin signer)
+            
+        Returns:
+            Transaction creation response
+        """
+        endpoint = f"/wallets/{quote(wallet_locator)}/transactions"
+        payload = {
+            "params": {
+                "transaction": transaction,
+                "requiredSigners": required_signers,
+                "signer": signer
+            }
+        }
+        payload["params"] = {k: v for k, v in payload["params"].items() if v is not None}
+        
+        return self._request(endpoint, method="POST", json=payload)
+
     def create_transaction_for_smart_wallet(
         self,
         wallet_address: str,
-        calls: List[Union[Call, Dict[str, str]]],
+        params: Union[List[Call], SolanaSmartWalletTransactionParams],
+        chain: Optional[str] = None,
+        signer: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Create a transaction using a smart wallet.
+        
+        Args:
+            wallet_address: Wallet address
+            params: Transaction parameters (List[Call] for EVM, SolanaSmartWalletTransactionParams for Solana)
+            chain: Chain identifier (required for EVM)
+            signer: Optional signer address (for EVM only)
+        
+        Returns:
+            Transaction creation response
+        """
+        if isinstance(params, list):
+            if not chain:
+                raise ValueError("Chain identifier is required for EVM transactions")
+            return self.create_transaction_for_evm_smart_wallet(wallet_address, cast(List[Call], params), chain, signer)
+        else:
+            return self.create_transaction(
+                wallet_address,
+                params.transaction,
+                params.required_signers,
+                params.signer
+            )
+            
+    def create_transaction_for_evm_smart_wallet(
+        self,
+        wallet_address: str,
+        calls: List[Call],
         chain: str,
         signer: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -295,7 +379,7 @@ class CrossmintWalletsAPI:
             calls: List of contract calls or dictionaries
             chain: Chain identifier
             signer: Optional signer address
-        
+            
         Returns:
             Transaction creation response
         """
@@ -305,14 +389,15 @@ class CrossmintWalletsAPI:
         formatted_calls = []
         for call in calls:
             if isinstance(call, dict):
-                formatted_calls.append(Call(**call).model_dump(by_alias=True))
+                formatted_calls.append(Call(**call).model_dump())
             else:
-                formatted_calls.append(call.model_dump(by_alias=True))
+                formatted_calls.append(call.model_dump())
         
         payload = {
             "params": {
-                "calls": formatted_calls,
-                "chain": chain
+                "chain": chain,
+                "signer": f"evm-keypair:{signer}" if signer else None,
+                "calls": formatted_calls
             }
         }
         if signer:
@@ -324,7 +409,7 @@ class CrossmintWalletsAPI:
         self,
         locator: str,
         transaction_id: str,
-        approvals: List[Union[Dict[str, str], AdminSigner]]
+        approvals: List[Dict[str, str]]
     ) -> Dict[str, Any]:
         """Approve a transaction.
         
@@ -338,18 +423,7 @@ class CrossmintWalletsAPI:
         """
         endpoint = f"/wallets/{quote(locator)}/transactions/{quote(transaction_id)}/approvals"
         
-        formatted_approvals = []
-        for approval in approvals:
-            if isinstance(approval, AdminSigner):
-                formatted_approvals.append({
-                    "signer": f"admin:{approval.address}",
-                    "signature": approval.signature,
-                    "chain": approval.chain
-                })
-            else:
-                formatted_approvals.append(approval)
-        
-        payload = {"approvals": formatted_approvals}
+        payload = {"approvals": approvals}
         
         return self._request(endpoint, method="POST", json=payload)
     
@@ -489,6 +563,57 @@ class CrossmintWalletsAPI:
         }
         return self._request(endpoint, method="POST", json=payload)
 
+    def register_delegated_signer(
+        self,
+        wallet_locator: str,
+        signer: str,
+        chain: Optional[str] = None, # Only for EVM
+        expires_at: Optional[int] = None, # Only for EVM
+        permissions: Optional[List[DelegatedSignerPermission]] = None # Only for EVM
+    ) -> Dict[str, Any]:
+        """Register a delegated signer for a smart wallet.
+        
+        Args:
+            wallet_locator: Wallet identifier
+            signer: The locator of the delegated signer
+            chain: Optional chain identifier
+            expires_at: Optional expiry date in milliseconds since UNIX epoch
+            permissions: Optional list of ERC-7715 permission objects
+            
+        Returns:
+            Delegated signer registration response
+        """
+        endpoint = f"/wallets/{quote(wallet_locator)}/signers"
+        payload: Dict[str, Any] = {
+            "signer": signer,
+        }
+
+        if chain:
+            payload["chain"] = chain
+        if expires_at:
+            payload["expiresAt"] = str(expires_at)
+        if permissions:
+            payload["permissions"] = [{"type": p.type, "value": p.value} for p in permissions]
+            
+        return self._request(endpoint, method="POST", json=payload)
+    
+    def get_delegated_signer(
+        self,
+        wallet_locator: str,
+        signer_locator: str
+    ) -> Dict[str, Any]:
+        """Get information about a delegated signer.
+        
+        Args:
+            wallet_locator: Wallet identifier
+            signer_locator: Signer locator string
+            
+        Returns:
+            Delegated signer information
+        """
+        endpoint = f"/wallets/{quote(wallet_locator)}/signers/{quote(signer_locator)}"
+        return self._request(endpoint, method="GET")
+    
     def wait_for_action(self, action_id: str, interval: float = 1.0, max_attempts: int = 60) -> Dict[str, Any]:
         """Wait for an action to complete.
         

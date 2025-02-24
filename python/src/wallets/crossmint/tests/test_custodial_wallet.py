@@ -6,7 +6,7 @@ from solders.message import Message, MessageV0
 from solders.transaction import Transaction, VersionedTransaction
 from solders.hash import Hash
 from solders.signature import Signature
-from goat_wallets.crossmint import CustodialSolanaWalletClient
+from goat_wallets.crossmint.custodial_solana_wallet import CustodialSolanaWalletClient
 from .utils.helpers import (
     compare_wallet_responses,
     compare_transaction_responses,
@@ -128,7 +128,9 @@ def test_custodial_wallet_transaction(custodial_api, test_email, solana_connecti
     
     # Send transaction
     tx = client.send_transaction({
-        "instructions": [instruction]
+        "instructions": [instruction],
+        "address_lookup_table_addresses": [],
+        "accounts_to_sign": []
     })
     assert tx["status"] in ["success", "pending"]
     if tx["status"] == "success":

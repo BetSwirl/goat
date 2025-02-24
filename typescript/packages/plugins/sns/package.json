@@ -15,6 +15,7 @@
         "@bonfida/spl-name-service": "^3.0.7",
         "@goat-sdk/core": "workspace:*",
         "@goat-sdk/wallet-solana": "workspace:*",
+        "@solana/web3.js": "catalog:",
         "zod": "catalog:"
     },
     "peerDependencies": {

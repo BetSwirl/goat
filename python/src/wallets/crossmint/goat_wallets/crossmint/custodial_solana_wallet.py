@@ -11,12 +11,12 @@ from solana.rpc.api import Client as SolanaClient
 from goat.classes.wallet_client_base import Balance, Signature
 from goat_wallets.solana import SolanaWalletClient, SolanaTransaction
 from .api_client import CrossmintWalletsAPI
+from .base_wallet import get_locator
 
 
-def get_locator(params: Dict) -> str:
-    """Get wallet locator from parameters."""
-    if "address" in params:
-        return params["address"]
+def get_custodial_locator(params: Dict) -> str:
+    """Get custodial wallet locator from parameters."""
+    linked_user = None
     if "email" in params:
         return f"email:{params['email']}:solana-mpc-wallet"
     if "phone" in params:
@@ -45,7 +45,7 @@ class CustodialSolanaWalletClient(SolanaWalletClient):
         super().__init__(connection)
         self._address = address
         self._client = api_client
-        self._locator = get_locator(options)
+        self._locator = get_custodial_locator(options)
         self.connection = connection
     
     def get_address(self) -> str:
@@ -117,10 +117,10 @@ class CustodialSolanaWalletClient(SolanaWalletClient):
         )
         
         # Create unsigned transaction first
-        transaction = Transaction.new_unsigned(message)
+        unsigned_transaction = Transaction.new_unsigned(message)
         
         # Convert to versioned transaction
-        versioned_transaction = VersionedTransaction.from_legacy(transaction)
+        versioned_transaction = VersionedTransaction.from_legacy(unsigned_transaction)
         
         # Serialize and encode transaction
         serialized = base58.b58encode(bytes(versioned_transaction)).decode()
@@ -211,7 +211,7 @@ def custodial_factory(api_client: CrossmintWalletsAPI):
     """Factory function to create custodial wallet instances."""
     def create_custodial(options: dict) -> CustodialSolanaWalletClient:
         """Create a new custodial wallet instance."""
-        locator = get_locator(options)
+        locator = get_custodial_locator(options)
         wallet = api_client.get_wallet(locator)
         
         return CustodialSolanaWalletClient(

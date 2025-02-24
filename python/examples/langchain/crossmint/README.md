@@ -1,5 +1,10 @@
 # Smart EVM Wallet Example
 
+This example demonstrates the usage of different wallet types with Crossmint's API:
+- Smart EVM Wallet
+- Custodial Solana Wallet
+- Smart Solana Wallet
+
 ## Setup
 
 1. Copy the `.env.template` and populate with your values:

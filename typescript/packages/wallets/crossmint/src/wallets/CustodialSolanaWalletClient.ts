@@ -94,7 +94,7 @@ export class CustodialSolanaWalletClient extends SolanaWalletClient {
         const serializedVersionedTransaction = transaction.serialize();
         const encodedVersionedTransaction = bs58.encode(serializedVersionedTransaction);
 
-        const { id: transactionId } = await this.#client.createTransactionForCustodialWallet(
+        const { id: transactionId } = await this.#client.createSolanaTransaction(
             this.#locator,
             encodedVersionedTransaction,
         );
@@ -117,10 +117,7 @@ export class CustodialSolanaWalletClient extends SolanaWalletClient {
     }
 
     async sendRawTransaction(transaction: string): Promise<{ hash: string }> {
-        const { id: transactionId } = await this.#client.createTransactionForCustodialWallet(
-            this.#locator,
-            transaction,
-        );
+        const { id: transactionId } = await this.#client.createSolanaTransaction(this.#locator, transaction);
 
         while (true) {
             const latestTransaction = await this.#client.checkTransactionStatus(this.#locator, transactionId);

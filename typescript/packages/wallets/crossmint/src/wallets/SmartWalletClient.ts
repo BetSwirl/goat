@@ -313,7 +313,7 @@ export class SmartWalletClient extends EVMSmartWalletClient {
             });
         });
 
-        const transactionResponse = await this.#client.createTransactionForSmartWallet(
+        const transactionResponse = await this.#client.createEVMTransaction(
             this.#address,
             transactionDatas,
             this.#chain,

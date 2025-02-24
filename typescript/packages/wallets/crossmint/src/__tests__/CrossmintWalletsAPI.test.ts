@@ -34,10 +34,11 @@ const getMockCallArgs = (callIndex = 0): RequestInit => {
 
 // Test utility to access private request method
 const makeRequest = async (api: CrossmintWalletsAPI, endpoint: string, options?: RequestInit) => {
-    return (api as unknown as { request: (endpoint: string, options?: RequestInit) => Promise<unknown> }).request(
-        endpoint,
-        options,
-    );
+    return (
+        api as unknown as {
+            request: (endpoint: string, options?: RequestInit) => Promise<unknown>;
+        }
+    ).request(endpoint, options);
 };
 
 describe("CrossmintWalletsAPI", () => {
@@ -83,6 +84,53 @@ describe("CrossmintWalletsAPI", () => {
             });
         });
 
+        describe("Solana Smart Wallet Operations", () => {
+            it("should create a Solana smart wallet", async () => {
+                const mockResponse = {
+                    type: "solana-smart-wallet",
+                    address: "solana123",
+                    linkedUser: "user@test.com",
+                    createdAt: "2024-01-01",
+                };
+                mockFetchResponse(mockResponse);
+
+                const result = await api.createSmartWallet(undefined, "solana-smart-wallet");
+                expect(result).toEqual(mockResponse);
+            });
+
+            it("should sign Solana messages", async () => {
+                const mockResponse = {
+                    id: "sig123",
+                    type: "solana-message",
+                    status: "completed",
+                    outputSignature: "solanaSignature",
+                    createdAt: "2024-01-01",
+                };
+                mockFetchResponse(mockResponse);
+
+                // @ts-ignore - Using solana chain for testing
+                const result = await api.signMessageForSmartWallet("solana123", "Hello Solana", "solana");
+                expect(result).toEqual(mockResponse);
+            });
+
+            it("should handle Solana transactions", async () => {
+                const mockResponse = {
+                    id: "tx123",
+                    type: "solana-smart-wallet",
+                    status: "pending",
+                    params: {
+                        transaction: "base58encodedtransaction",
+                    },
+                    createdAt: "2024-01-01",
+                };
+                mockFetchResponse(mockResponse);
+
+                // @ts-ignore - Using solana chain for testing
+                const result = await api.createEVMTransaction("solana123", "base58encodedtransaction", "solana");
+                expect(result).toEqual(mockResponse);
+            });
+        });
+
         describe("Custodial Solana Wallet Operations", () => {
             it("should create a custodial wallet", async () => {
                 const mockResponse = {
@@ -109,10 +157,7 @@ describe("CrossmintWalletsAPI", () => {
                 };
                 mockFetchResponse(mockResponse);
 
-                const result = await api.createTransactionForCustodialWallet(
-                    "solana:custodial123",
-                    "base58encodedtransaction",
-                );
+                const result = await api.createSolanaTransaction("solana:custodial123", "base58encodedtransaction");
                 expect(result).toEqual(mockResponse);
 
                 const args = getMockCallArgs();
@@ -158,9 +203,9 @@ describe("CrossmintWalletsAPI", () => {
                 };
                 mockFetchResponse(errorResponse, 400, false);
 
-                await expect(
-                    api.createTransactionForCustodialWallet("solana:custodial123", "invalidTransaction"),
-                ).rejects.toThrow(/Error 400/);
+                await expect(api.createSolanaTransaction("solana:custodial123", "invalidTransaction")).rejects.toThrow(
+                    /Error 400/,
+                );
             });
         });
     });
@@ -185,7 +230,7 @@ describe("CrossmintWalletsAPI", () => {
             };
             mockFetchResponse(mockResponse);
 
-            const result = await api.createTransactionForSmartWallet(
+            const result = await api.createEVMTransaction(
                 "0x123",
                 [
                     {
@@ -281,7 +326,7 @@ describe("CrossmintWalletsAPI", () => {
             };
             mockFetchResponse(mockResponse);
 
-            const result = await api.createTransactionForSmartWallet(
+            const result = await api.createEVMTransaction(
                 "0x123",
                 [
                     {
@@ -328,7 +373,7 @@ describe("CrossmintWalletsAPI", () => {
             mockFetchResponse(errorResponse, 400, false);
 
             await expect(
-                api.createTransactionForSmartWallet(
+                api.createEVMTransaction(
                     "0x123",
                     [
                         {
@@ -350,7 +395,7 @@ describe("CrossmintWalletsAPI", () => {
             mockFetchResponse(errorResponse, 400, false);
 
             await expect(
-                api.createTransactionForSmartWallet(
+                api.createEVMTransaction(
                     "0x123",
                     [
                         {
@@ -537,7 +582,10 @@ describe("CrossmintWalletsAPI", () => {
                         }),
                 });
 
-            const result = await api.waitForTransaction("wallet123", "tx123", { interval: 100, maxAttempts: 2 });
+            const result = await api.waitForTransaction("wallet123", "tx123", {
+                interval: 100,
+                maxAttempts: 2,
+            });
             expect(result.status).toBe("success");
             expect(result.hash).toBe("0xhash123");
         });
@@ -566,7 +614,10 @@ describe("CrossmintWalletsAPI", () => {
                         }),
                 });
 
-            const result = await api.waitForSignature("wallet123", "sig123", { interval: 100, maxAttempts: 2 });
+            const result = await api.waitForSignature("wallet123", "sig123", {
+                interval: 100,
+                maxAttempts: 2,
+            });
             expect(result.status).toBe("success");
             expect(result.outputSignature).toBe("0xsig123");
         });
@@ -595,7 +646,10 @@ describe("CrossmintWalletsAPI", () => {
                         }),
                 });
 
-            const result = await api.waitForAction("action123", { interval: 100, maxAttempts: 2 });
+            const result = await api.waitForAction("action123", {
+                interval: 100,
+                maxAttempts: 2,
+            });
             expect(result.status).toBe("succeeded");
             expect(result.data.result).toBe("success");
         });
@@ -616,7 +670,10 @@ describe("CrossmintWalletsAPI", () => {
             );
 
             await expect(
-                api.waitForTransaction("wallet123", "tx123", { interval: 100, maxAttempts: 2 }),
+                api.waitForTransaction("wallet123", "tx123", {
+                    interval: 100,
+                    maxAttempts: 2,
+                }),
             ).rejects.toThrow(/Timed out waiting for transaction/);
         });
 
@@ -636,7 +693,10 @@ describe("CrossmintWalletsAPI", () => {
             );
 
             await expect(
-                api.waitForSignature("wallet123", "sig123", { interval: 100, maxAttempts: 2 }),
+                api.waitForSignature("wallet123", "sig123", {
+                    interval: 100,
+                    maxAttempts: 2,
+                }),
             ).rejects.toThrow(/Timed out waiting for signature/);
         });
 
@@ -654,9 +714,12 @@ describe("CrossmintWalletsAPI", () => {
                 }),
             );
 
-            await expect(api.waitForAction("action123", { interval: 100, maxAttempts: 2 })).rejects.toThrow(
-                /Timed out waiting for action/,
-            );
+            await expect(
+                api.waitForAction("action123", {
+                    interval: 100,
+                    maxAttempts: 2,
+                }),
+            ).rejects.toThrow(/Timed out waiting for action/);
         });
     });
 
@@ -692,7 +755,7 @@ describe("CrossmintWalletsAPI", () => {
             mockFetchResponse(errorResponse, 400, false);
 
             await expect(
-                api.createTransactionForSmartWallet(
+                api.createEVMTransaction(
                     "0x123",
                     [
                         {
@@ -736,7 +799,7 @@ describe("CrossmintWalletsAPI", () => {
             mockFetchResponse(errorResponse, 400, false);
 
             await expect(
-                api.createTransactionForSmartWallet(
+                api.createEVMTransaction(
                     "0x123",
                     [
                         {

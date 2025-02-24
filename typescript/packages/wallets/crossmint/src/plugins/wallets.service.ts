@@ -15,7 +15,7 @@ export class WalletsService {
     })
     async createWalletForTwitterUser(parameters: CreateWalletForTwitterUserParameters) {
         try {
-            const response = await fetch(`${this.client.baseUrl}/api/v1-alpha2/wallets`, {
+            const response = await fetch(`${this.client.baseUrl}/api/2022-06-09/wallets`, {
                 method: "POST",
                 headers: {
                     ...this.client.authHeaders,
@@ -44,7 +44,7 @@ export class WalletsService {
     })
     async createWalletForEmail(parameters: CreateWalletForEmailParameters) {
         try {
-            const response = await fetch(`${this.client.baseUrl}/api/v1-alpha2/wallets`, {
+            const response = await fetch(`${this.client.baseUrl}/api/2022-06-09/wallets`, {
                 method: "POST",
                 headers: {
                     ...this.client.authHeaders,
@@ -74,7 +74,7 @@ export class WalletsService {
     async getWalletByTwitterUsername(parameters: GetWalletByTwitterUsernameParameters) {
         try {
             const response = await fetch(
-                `${this.client.baseUrl}/api/v1-alpha2/wallets/x:${parameters.username}:${parameters.chain}-mpc-wallet`,
+                `${this.client.baseUrl}/api/2022-06-09/wallets/x:${parameters.username}:${parameters.chain}-mpc-wallet`,
                 {
                     headers: {
                         ...this.client.authHeaders,
@@ -102,7 +102,7 @@ export class WalletsService {
     async getWalletByEmail(parameters: GetWalletByEmailParameters) {
         try {
             const response = await fetch(
-                `${this.client.baseUrl}/api/v1-alpha2/wallets/email:${parameters.email}:${parameters.chain}-mpc-wallet`,
+                `${this.client.baseUrl}/api/2022-06-09/wallets/email:${parameters.email}:${parameters.chain}-mpc-wallet`,
                 {
                     headers: {
                         ...this.client.authHeaders,

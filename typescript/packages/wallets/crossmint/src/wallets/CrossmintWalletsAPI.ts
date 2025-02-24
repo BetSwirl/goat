@@ -20,7 +20,7 @@ type AdminSigner = {
 // Create Wallet
 ////////////////////////////////////////////////////////////////////
 interface CreateWalletRequest {
-    type: "evm-smart-wallet" | "solana-custodial-wallet";
+    type: "evm-smart-wallet" | "solana-custodial-wallet" | "solana-smart-wallet";
     config?: {
         adminSigner?: AdminSigner;
     };
@@ -28,7 +28,7 @@ interface CreateWalletRequest {
 }
 
 interface CreateWalletResponse {
-    type: "evm-smart-wallet" | "solana-custodial-wallet";
+    type: "evm-smart-wallet" | "solana-custodial-wallet" | "solana-smart-wallet";
     address: string;
     config: {
         adminSigner?: AdminSigner;
@@ -47,6 +47,7 @@ interface GetWalletResponse extends CreateWalletResponse {}
 ////////////////////////////////////////////////////////////////////
 interface TransactionApprovals {
     pending: Omit<ApprovalSubmission, "signature" | "submittedAt" | "metadata">[];
+
     submitted: ApprovalSubmission[];
     required?: number; // For multisig scenarios, tentative until we support
 }
@@ -60,7 +61,7 @@ interface ApprovalSubmission {
 }
 
 interface CreateTransactionRequest {
-    params: TransactionParams;
+    params: EVMTransactionParams | SolanaTransactionParams;
 }
 
 interface CreateTransactionResponse {
@@ -68,7 +69,7 @@ interface CreateTransactionResponse {
     walletType: "evm-smart-wallet" | "solana-custodial-wallet";
     status: "awaiting-approval" | "pending" | "failed" | "success";
     approvals?: TransactionApprovals;
-    params: TransactionParams;
+    params: EVMTransactionParams | SolanaTransactionParams;
     onChain?: {
         userOperation?: object;
         userOperationHash?: string;
@@ -83,12 +84,17 @@ interface Approval {
     signature: string;
 }
 
-interface TransactionParams {
+interface EVMTransactionParams {
     calls?: Call[];
     chain?: string;
     signer?: string;
     transaction?: string;
     signers?: string[];
+}
+
+interface SolanaTransactionParams {
+    transaction: string;
+    requiredSigners?: string[];
 }
 
 interface Call {
@@ -102,6 +108,7 @@ interface Call {
 ////////////////////////////////////////////////////////////////////
 interface TransactionStatusResponse extends CreateTransactionResponse {
     hash?: string;
+    error?: string;
     onChain?: {
         userOperation?: object;
         userOperationHash?: string;
@@ -114,11 +121,13 @@ interface TransactionStatusResponse extends CreateTransactionResponse {
 ////////////////////////////////////////////////////////////////////
 // Submit Approval
 ////////////////////////////////////////////////////////////////////
+interface SubmitApproval {
+    signer: string;
+    signature: string;
+}
+
 interface SubmitApprovalRequest {
-    approvals: {
-        signer: string;
-        signature: string;
-    }[];
+    approvals: SubmitApproval[];
 }
 
 interface SubmitApprovalResponse extends CreateTransactionResponse {}
@@ -244,10 +253,13 @@ export class CrossmintWalletsAPI {
         return responseBody;
     }
 
-    public async createSmartWallet(adminSigner?: AdminSigner): Promise<CreateWalletResponse> {
+    public async createSmartWallet(
+        adminSigner?: AdminSigner,
+        type: "evm-smart-wallet" | "solana-smart-wallet" = "evm-smart-wallet",
+    ): Promise<CreateWalletResponse> {
         const endpoint = "/wallets";
         const payload: CreateWalletRequest = {
-            type: "evm-smart-wallet",
+            type,
             config: {
                 adminSigner: adminSigner,
             },
@@ -369,14 +381,16 @@ export class CrossmintWalletsAPI {
         });
     }
 
-    public async createTransactionForCustodialWallet(
+    public async createSolanaTransaction(
         locator: string,
         transaction: string,
+        requiredSigners?: string[],
     ): Promise<CreateTransactionResponse> {
         const endpoint = `/wallets/${encodeURIComponent(locator)}/transactions`;
         const payload: CreateTransactionRequest = {
             params: {
                 transaction: transaction,
+                ...(requiredSigners ? { requiredSigners } : {}),
             },
         };
 
@@ -386,7 +400,7 @@ export class CrossmintWalletsAPI {
         });
     }
 
-    public async createTransactionForSmartWallet(
+    public async createEVMTransaction(
         walletAddress: string,
         calls: Call[],
         chain: SupportedSmartWalletChains,
@@ -410,7 +424,7 @@ export class CrossmintWalletsAPI {
     public async approveTransaction(
         locator: string,
         transactionId: string,
-        approvals: Approval[],
+        approvals: SubmitApproval[],
     ): Promise<SubmitApprovalResponse> {
         const endpoint = `/wallets/${encodeURIComponent(
             locator,

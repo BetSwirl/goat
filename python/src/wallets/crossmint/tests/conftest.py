@@ -38,11 +38,26 @@ def test_evm_transaction():
 
 
 @pytest.fixture
-def test_solana_transaction():
-    """Fixture providing a test Solana transaction."""
+def test_solana_wallet_options():
+    """Fixture providing test Solana wallet options."""
     return {
-        "instructions": []  # Empty instructions for basic test
+        "chain": "solana",
+        "provider": "https://api.devnet.solana.com"
     }
+
+
+@pytest.fixture
+def test_solana_message():
+    """Fixture providing test Solana message."""
+    return "Hello Solana"
+
+
+@pytest.fixture
+def test_solana_transaction():
+    """Fixture providing test Solana transaction."""
+    # Example of a valid base58-encoded Solana transaction
+    # This is a minimal transfer transaction encoded in base58
+    return "4hXTCkRzt9WyecNzV1XPgCDfGAZzQKNxLXgynz5QDuWWPSAZBZSHptvWRL3BjCvzUXRdKvHL2b7yGrRQcWyaqsaBCncVG7BFggS8w9snUts67BSh3EqKpXLUm5UMHfD7ZBe9GhARjbNQMLJ1QD3Spr6oMTBU6EhdB4RD8CP2xUxr2u3d6fos36PD98XS6oX8TQjLpsMwncs5DAMiD4nNnR8NBfyghGCWvCVifVwvA8B8TJxE1aiyiv2L429BCWfyzAme5sZW8rDb14NeCQHhZbtNqfXhcp2tAnaAT"
 
 
 @pytest.fixture

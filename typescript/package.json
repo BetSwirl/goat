@@ -31,7 +31,7 @@
         "tsx": "4.19.2",
         "turbo": "2.3.1",
         "typescript": "5.6.3",
-        "vitest": "1.6.1"
+        "vitest": "2.1.9"
     },
     "engines": {
         "node": ">=20.12.2 <23",
@@ -51,6 +51,10 @@
     "keywords": ["ai", "agents", "web3"],
     "packageManager": "pnpm@9.14.2",
     "dependencies": {
-        "commander": "13.0.0"
+        "@solana/web3.js": "1.95.8",
+        "bs58": "^6.0.0",
+        "commander": "13.0.0",
+        "tweetnacl": "^1.0.3",
+        "viem": "2.22.19"
     }
 }
