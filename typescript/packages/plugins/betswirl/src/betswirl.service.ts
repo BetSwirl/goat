@@ -9,58 +9,50 @@ import {
     CoinToss,
     Dice,
     DiceNumber,
+    GAS_TOKEN_ADDRESS,
+    GameEncodedInput,
+    RawBetRequirements,
+    type RawCasinoToken,
     Roulette,
     RouletteNumber,
-    bankAbi,
+    Token,
     casinoChainById,
-    casinoChains,
-    casinoGameAbi,
-    generatePlayGameFunctionData,
+    fetchBetByHash,
+    getBetRequirementsFunctionData,
+    getCasinoTokensFunctionData,
+    getChainlinkVrfCostFunctionData,
+    getPlaceBetFunctionData,
     maxHarcodedBetCountByType,
 } from "@betswirl/sdk-core";
 
-import {
-    CoinTossBetParameters,
-    DiceBetParameters,
-    GetBetParameters,
-    RouletteBetParameters,
-    gasTokenAddress,
-} from "./parameters";
-
-type BankrollToken = {
-    tokenAddress: string;
-    symbol: string;
-    decimals: number;
-    token: {
-        allowed: boolean;
-        paused: boolean;
-    };
-};
+import { CoinTossBetParameters, DiceBetParameters, GetBetParameters, RouletteBetParameters } from "./parameters";
 
 export class BetSwirlService {
     @Tool({
         name: "betswirl.getBetTokens",
         description: "List tokens available for betting on the games",
     })
-    async getBetTokens(walletClient: EVMWalletClient) {
+    async getBetTokens(walletClient: EVMWalletClient): Promise<Token[]> {
         const chainId = walletClient.getChain().id as CasinoChainId;
-        const casinoChain = casinoChains.find((casinoChain) => casinoChain.id === chainId);
+        const casinoChain = casinoChainById[chainId];
+        // You theorically not need to do it if you if you restrict the usable chains in the plugin from the start with supportsChain
         if (!casinoChain) {
             throw new Error(`Chain id ${chainId} not found`);
         }
         try {
+            const { data: casinoTokensFunctionData } = getCasinoTokensFunctionData(chainId);
             const { value: rawTokens } = (await walletClient.read({
-                address: casinoChainById[chainId].contracts.bank,
-                functionName: "getTokens",
-                abi: bankAbi,
-            })) as { value: BankrollToken[] };
+                address: casinoTokensFunctionData.to,
+                functionName: casinoTokensFunctionData.functionName,
+                abi: casinoTokensFunctionData.abi,
+            })) as { value: RawCasinoToken[] };
 
             return rawTokens
                 .filter((rawToken) => rawToken.token.allowed && !rawToken.token.paused)
                 .map((rawToken) => ({
                     address: rawToken.tokenAddress,
                     symbol:
-                        rawToken.tokenAddress === gasTokenAddress
+                        rawToken.tokenAddress === GAS_TOKEN_ADDRESS
                             ? casinoChain.viemChain.nativeCurrency.symbol
                             : rawToken.symbol,
                     decimals: rawToken.decimals,
@@ -78,7 +70,7 @@ export class BetSwirlService {
         const hash = await placeBet(
             walletClient,
             CASINO_GAME_TYPE.COINTOSS,
-            [CoinToss.encodeInput(parameters.face)],
+            CoinToss.encodeInput(parameters.face),
             CoinToss.getMultiplier(parameters.face),
             getCasinoGameParameters(walletClient.getAddress(), parameters),
         );
@@ -87,11 +79,18 @@ export class BetSwirlService {
     }
 
     @Tool({
-        name: "betswirl.getCoinTossBet",
-        description: "Get the resolved Coin Toss bet",
+        name: "betswirl.getBet",
+        description:
+            "Get the placed bet. If it returns null, it means the bet is not yet saved in subgraph or the bet doesn't exist.",
     })
-    async getCoinTossBet(parameters: GetBetParameters) {
-        // return fetchCasinoBet(parameters.hash)
+    async getBet(walletClient: EVMWalletClient, parameters: GetBetParameters) {
+        const chainId = walletClient.getChain().id as CasinoChainId;
+        const betData = await fetchBetByHash({ chainId }, parameters.hash as Hex);
+        if (betData.bet) return betData.bet;
+        if (betData.error) {
+            throw new Error(`[${betData.error.code}] Error fetching bet: ${betData.error.message}`);
+        }
+        return null;
     }
 
     @Tool({
@@ -103,20 +102,12 @@ export class BetSwirlService {
         const hash = await placeBet(
             walletClient,
             CASINO_GAME_TYPE.DICE,
-            [Dice.encodeInput(cap)],
+            Dice.encodeInput(cap),
             Dice.getMultiplier(cap),
             getCasinoGameParameters(walletClient.getAddress(), parameters),
         );
 
         return hash;
-    }
-
-    @Tool({
-        name: "betswirl.getDiceBet",
-        description: "Get the resolved Dice bet",
-    })
-    async getDiceBet(parameters: GetBetParameters) {
-        // return fetchCasinoBet(parameters.hash)
     }
 
     @Tool({
@@ -128,20 +119,12 @@ export class BetSwirlService {
         const hash = await placeBet(
             walletClient,
             CASINO_GAME_TYPE.ROULETTE,
-            [Roulette.encodeInput(numbers)],
+            Roulette.encodeInput(numbers),
             Roulette.getMultiplier(numbers),
             getCasinoGameParameters(walletClient.getAddress(), parameters),
         );
 
         return hash;
-    }
-
-    @Tool({
-        name: "betswirl.getRouletteBet",
-        description: "Get the resolved Roulette bet",
-    })
-    async getRouletteBet(parameters: GetBetParameters) {
-        // return fetchCasinoBet(parameters.hash)
     }
 }
 
@@ -158,7 +141,7 @@ function getCasinoGameParameters(
 ) {
     return {
         betAmount: params.betAmount,
-        betToken: (params.token as Hex) || gasTokenAddress,
+        betToken: (params.token as Hex) || GAS_TOKEN_ADDRESS,
         betCount: params.betCount || 1,
         receiver: (params.receiver || accountAddress) as Hex,
         stopGain: params.stopGain || 0n,
@@ -173,12 +156,17 @@ async function getBetRequirements(
     multiplier: number,
 ) {
     try {
+        const { data: betRequirementsFunctionData } = getBetRequirementsFunctionData(
+            betToken,
+            multiplier,
+            walletClient.getChain().id as CasinoChainId,
+        );
         const { value: rawBetRequirements } = (await walletClient.read({
-            address: casinoChainById[walletClient.getChain().id as CasinoChainId].contracts.bank,
-            functionName: "getBetRequirements",
-            args: [betToken, BigInt(multiplier)],
-            abi: bankAbi,
-        })) as { value: string[] };
+            address: betRequirementsFunctionData.to,
+            functionName: betRequirementsFunctionData.functionName,
+            args: betRequirementsFunctionData.args as unknown as unknown[],
+            abi: betRequirementsFunctionData.abi,
+        })) as { value: RawBetRequirements };
         return {
             maxBetAmount: BigInt(rawBetRequirements[1]),
             maxBetCount: Math.min(Number(rawBetRequirements[2]), maxHarcodedBetCountByType[game]),
@@ -188,13 +176,24 @@ async function getBetRequirements(
     }
 }
 
-async function getChainlinkVrfCost(walletClient: EVMWalletClient, gameAddress: Hex, betToken: Hex, betCount: number) {
+async function getChainlinkVrfCost(
+    walletClient: EVMWalletClient,
+    game: CASINO_GAME_TYPE,
+    betToken: Hex,
+    betCount: number,
+) {
     try {
+        const { data: chainlinkVRFCostFunctionData } = getChainlinkVrfCostFunctionData(
+            game,
+            betToken,
+            betCount,
+            walletClient.getChain().id as CasinoChainId,
+        );
         const { value: vrfCost } = (await walletClient.read({
-            address: gameAddress,
-            functionName: "getChainlinkVRFCost",
-            args: [betToken, betCount],
-            abi: casinoGameAbi,
+            address: chainlinkVRFCostFunctionData.to,
+            functionName: chainlinkVRFCostFunctionData.functionName,
+            args: chainlinkVRFCostFunctionData.args as unknown as unknown[],
+            abi: chainlinkVRFCostFunctionData.abi,
         })) as { value: string };
         if (!vrfCost) {
             return 0n;
@@ -208,7 +207,7 @@ async function getChainlinkVrfCost(walletClient: EVMWalletClient, gameAddress: H
 async function placeBet(
     walletClient: EVMWalletClient,
     game: CASINO_GAME_TYPE,
-    gameParams: Array<boolean | DiceNumber | number>,
+    gameEncodedInput: GameEncodedInput,
     gameMultiplier: number,
     casinoGameParams: {
         betAmount: bigint;
@@ -220,10 +219,7 @@ async function placeBet(
     },
 ) {
     const chainId = walletClient.getChain().id as CasinoChainId;
-    const gameAddress = casinoChainById[chainId].contracts.games[game]?.address;
-    if (!gameAddress) {
-        throw new Error(`${game} isn't available on the chain id ${chainId}`);
-    }
+
     const betRequirements = await getBetRequirements(walletClient, game, casinoGameParams.betToken, gameMultiplier);
     if (casinoGameParams.betAmount > betRequirements.maxBetAmount) {
         throw new Error(`Bet amount should be less than ${betRequirements.maxBetAmount}`);
@@ -232,26 +228,16 @@ async function placeBet(
         throw new Error(`Bet count should be less than ${betRequirements.maxBetCount}`);
     }
 
-    const vrfCost = await getChainlinkVrfCost(
-        walletClient,
-        gameAddress,
-        casinoGameParams.betToken,
-        casinoGameParams.betCount,
-    );
-    const functionData = generatePlayGameFunctionData(
+    const vrfCost = await getChainlinkVrfCost(walletClient, game, casinoGameParams.betToken, casinoGameParams.betCount);
+    const functionData = getPlaceBetFunctionData(
         {
             betAmount: casinoGameParams.betAmount,
 
             game,
-            gameEncodedExtraParams: gameParams,
+            gameEncodedInput: gameEncodedInput,
             receiver: casinoGameParams.receiver,
-
             betCount: casinoGameParams.betCount,
-            // token: {
-            //     address: casinoGameParams.betToken
-            //     symbol
-            //     decimals
-            // },
+            tokenAddress: casinoGameParams.betToken,
             stopGain: casinoGameParams.stopGain,
             stopLoss: casinoGameParams.stopLoss,
         },
@@ -259,12 +245,14 @@ async function placeBet(
     );
     try {
         const { hash: betHash } = await walletClient.sendTransaction({
-            to: gameAddress,
+            to: functionData.data.to,
             functionName: functionData.data.functionName,
-            args: functionData.data.args,
-            value: casinoGameParams.betToken === gasTokenAddress ? functionData.totalBetAmount + vrfCost : vrfCost,
+            args: functionData.data.args as unknown as unknown[],
+            value:
+                casinoGameParams.betToken === GAS_TOKEN_ADDRESS
+                    ? functionData.formattedData.totalBetAmount + vrfCost
+                    : vrfCost,
             abi: functionData.data.abi,
-            data: functionData.encodedData,
         });
 
         return betHash;
