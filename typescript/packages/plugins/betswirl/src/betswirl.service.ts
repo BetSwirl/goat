@@ -20,13 +20,13 @@ import {
     fetchBetByHash,
     getBetRequirementsFunctionData,
     getCasinoTokensFunctionData,
-    getChainlinkVrfCostFunctionData,
     getPlaceBetFunctionData,
     maxHarcodedBetCountByType,
 } from "@betswirl/sdk-core";
 
 import { CoinTossBetParameters, DiceBetParameters, GetBetParameters, RouletteBetParameters } from "./parameters";
-
+// Should be exported from the sdk in the future
+const BETSWIRL_API_URL = "https://api.betswirl.com";
 export class BetSwirlService {
     @Tool({
         name: "betswirl.getBetTokens",
@@ -176,25 +176,46 @@ async function getBetRequirements(
     }
 }
 
+/* WORKAROUND: We don't have a way to read the chainlink vrf cost because we cannot pass gasPrice in walletClient.read, so we fetch it from the api.
+        The issue is the gasPrice used to estimate the VRF fees on API side can be different from the one used while calling walletClient.sendTransaction. It means the placeBet call function may fail...
+        To avoid that, we ideally need gasPrice both in the read and in the sendTransaction call, but at least gasPrice in the sendTransaction call.
+    */
 async function getChainlinkVrfCost(
     walletClient: EVMWalletClient,
     game: CASINO_GAME_TYPE,
     betToken: Hex,
     betCount: number,
 ) {
+    const chainId = walletClient.getChain().id as CasinoChainId;
     try {
-        const { data: chainlinkVRFCostFunctionData } = getChainlinkVrfCostFunctionData(
+        /*const { data: chainlinkVRFCostFunctionData } = getChainlinkVrfCostFunctionData(
             game,
             betToken,
             betCount,
-            walletClient.getChain().id as CasinoChainId,
+            chainId
         );
         const { value: vrfCost } = (await walletClient.read({
             address: chainlinkVRFCostFunctionData.to,
             functionName: chainlinkVRFCostFunctionData.functionName,
             args: chainlinkVRFCostFunctionData.args as unknown as unknown[],
             abi: chainlinkVRFCostFunctionData.abi,
-        })) as { value: string };
+            gasPrice // to make it work, we need to precise a gas price
+        })) as { value: string };*/
+
+        const params = new URLSearchParams({
+            game: game.toString(),
+            tokenAddress: betToken,
+            betCount: betCount.toString(),
+            chainId: chainId.toString(),
+        });
+        const response = await fetch(`${BETSWIRL_API_URL}/vrfFees?${params}`, {});
+
+        if (!response.ok) {
+            throw new Error(`An error occured while fetching the chainlink vrf cost from API: ${response.statusText}`);
+        }
+
+        const vrfCost = await response.json();
+
         if (!vrfCost) {
             return 0n;
         }
