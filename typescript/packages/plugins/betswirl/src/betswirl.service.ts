@@ -29,6 +29,22 @@ import { CoinTossBetParameters, DiceBetParameters, GetBetParameters, RouletteBet
 const BETSWIRL_API_URL = "https://api.betswirl.com";
 export class BetSwirlService {
     @Tool({
+        name: "betswirl.getCasinoGames",
+        description: "List games available for betting on the chain",
+    })
+    async getCasinoGames(walletClient: EVMWalletClient) {
+        return; // for each games walletClient.read(game.paused)
+    }
+
+    @Tool({
+        name: "betswirl.getBetRequirements",
+        description: "List games available for betting on the chain",
+    })
+    async getBetRequirements(walletClient: EVMWalletClient) {
+        return; // walletClient.read(game.paused)
+    }
+
+    @Tool({
         name: "betswirl.getBetTokens",
         description: "List tokens available for betting on the games",
     })

@@ -10,7 +10,7 @@ import { base } from "viem/chains";
 
 import { getOnChainTools } from "@goat-sdk/adapter-vercel-ai";
 
-import { betswirl } from "../../../packages/plugins/betswirl"
+import { betswirl } from "../../../packages/plugins/betswirl";
 
 import { viem } from "@goat-sdk/wallet-viem";
 
@@ -27,9 +27,7 @@ const walletClient = createWalletClient({
 (async () => {
     const tools = await getOnChainTools({
         wallet: viem(walletClient),
-        plugins: [
-            betswirl()
-        ],
+        plugins: [betswirl()],
     });
 
     const rl = readline.createInterface({
