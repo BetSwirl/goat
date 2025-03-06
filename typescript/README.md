@@ -1,7 +1,6 @@
 <div>
   <img src="https://github.com/user-attachments/assets/4821833e-52e5-4126-a2a1-59e9fa9bebd7" alt="GOAT" width="100%" height="auto" style="object-fit: contain; max-width: 800px;">
 
-
 <div>
 <img src="https://img.shields.io/npm/dm/%40goat-sdk%2Fcore" alt="NPM Downloads">
 
@@ -13,8 +12,14 @@
 <img src="https://img.shields.io/pypi/pyversions/goat-sdk" alt="PyPI - Python Version">
 </div>
 
-GOAT is free software, MIT licensed, sponsored by [Crossmint](https://www.crossmint.com)
-
+<br>
+<div align="center">
+<div style="margin-bottom: 5px;">
+<b>Sponsored by</b>
+</div>
+<div>
+<a href="https://www.crossmint.com" target="_blank"> <img src="https://github.com/user-attachments/assets/f3bdfbe3-2a87-48ec-aacb-a5e72737018c" alt="Crossmint logo" width="180px" height="auto" style="object-fit: contain;"></a>
+</div>
 </div>
 
 ## Table of Contents
@@ -54,27 +59,37 @@ If you don't find what you need on our more than 200 integrations you can easily
 
 See how to do it [here](#-contributing).
 
-# 🚀 Quickstarts
-- **EVM**
-  - [Send and receive ERC-20 tokens](https://github.com/goat-sdk/goat/tree/main/typescript/examples/vercel-ai/viem)
-  - [Swap tokens on Uniswap](https://github.com/goat-sdk/goat/tree/main/typescript/examples/vercel-ai/viem)
-  - [Make bets on Polymarket](https://github.com/goat-sdk/goat/tree/main/typescript/examples/vercel-ai/polymarket)
-  - [DeFi agent on Mode](https://github.com/goat-sdk/goat/tree/main/typescript/examples/vercel-ai/mode)
-  - Purchase physical assets on Amazon [coming soon]
-  - [Eliza agent](https://github.com/goat-sdk/eliza-mode-example)
-  - [GAME framework example](https://github.com/game-by-virtuals/game-node/tree/main/plugins/onChainActionsPlugin)
-  - [Model Context Protocol example](https://github.com/goat-sdk/goat/tree/main/typescript/examples/model-context-protocol/mode)
-  - [Voice agent with ElevenLabs](https://github.com/goat-sdk/goat/tree/main/typescript/examples/eleven-labs/conversational-agent)
-- **Solana**
-  - [Send and receive SLP tokens and SOL](https://github.com/goat-sdk/goat/tree/main/typescript/examples/vercel-ai/solana)
-  - [Swap tokens on Jupiter](https://github.com/goat-sdk/goat/tree/main/typescript/examples/vercel-ai/solana)
-  - [Create a position on Orca](https://github.com/goat-sdk/goat/tree/main/typescript/examples/vercel-ai/solana)
-  - [Launch a token on Pump.fun](https://github.com/goat-sdk/goat/tree/main/typescript/examples/vercel-ai/solana)
-  - Purchase physical assets on Amazon [coming soon]
-  - [Eliza agent](https://github.com/goat-sdk/eliza-solana-example)
-  - [Voice agent with ElevenLabs](https://github.com/goat-sdk/goat/tree/main/typescript/examples/eleven-labs/conversational-agent)
-- **See all +30 typescript quickstarts [here](https://github.com/goat-sdk/goat/tree/main/typescript/examples).**
+**License**
 
+GOAT is free software, MIT licensed.
+
+# 🚀 Quickstarts
+
+***NOTE**: While a quickstart may be implemented for a specific chain, wallet and agent framework, GOAT's flexibility allows you to easily adapt it to any chain, wallet and agent framework without difficulty.*
+
+- **By use case**
+  - Send and receive tokens [[EVM](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-use-case/evm-send-receive-tokens), [Solana](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-use-case/solana-send-receive-tokens), [Chromia](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-use-case/chromia-send-receive-tokens), [Cosmos](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-use-case/cosmos-send-receive-tokens), [Fuel](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-use-case/fuel-send-receive-tokens), [Radix](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-use-case/radix-send-receive-tokens)]
+  - Swap tokens [[EVM](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-use-case/evm-swap-tokens), [Solana](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-use-case/solana-swap-tokens)]
+  - Create and manage DeFi positions [[EVM](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-use-case/evm-defi-agent), [Solana](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-use-case/solana-defi-agent)]
+  - Mint NFTs [[EVM](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-use-case/evm-mint-nft), [Solana](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-use-case/solana-mint-nft)]
+  - Make bets on Polymarket [[EVM](https://github.com/goat-sdk/goat/tree/main/typescript/examples/vercel-ai/polymarket)]
+  - Launch a token on Pump.fun [[Solana](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-use-case/solana-launch-token)]
+  - Purchase physical assets [coming soon]
+- **By framework**
+  - [Vercel AI](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-framework/vercel-ai)
+  - [Langchain](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-framework/langchain)
+  - [Eliza Agent](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-framework/eliza)
+  - [GAME Agent](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-framework/virtuals-game)
+  - [MCP (Model Context Protocol)](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-framework/model-context-protocol)
+  - [Voice agent with ElevenLabs](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-framework/eleven-labs)
+- **By wallet**
+  - [Crossmint Smart Wallets](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-wallet/crossmint-smart-wallets)
+  - [Crossmint Custodial Wallets](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-wallet/crossmint-solana-custodial-wallets)
+  - [Lit](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-wallet/lit)
+  - [Safe](https://github.com/goat-sdk/goat/tree/main/typescript/examples/by-wallet/safe)
+
+- **See all typescript quickstarts [here](https://github.com/goat-sdk/goat/tree/main/typescript/examples).**
+  
 # 🛠️ Supported tools and frameworks
 - See [here the full list of supported tools and frameworks](https://github.com/goat-sdk/goat/tree/main#️-supported-tools-and-frameworks)
 

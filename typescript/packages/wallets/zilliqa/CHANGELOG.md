@@ -1,5 +1,29 @@
 # @goat-sdk/wallet-zilliqa
 
+## 0.3.3
+
+### Patch Changes
+
+- Updated dependencies [3091a49]
+  - @goat-sdk/core@0.4.8
+  - @goat-sdk/wallet-evm@0.2.10
+  - @goat-sdk/wallet-viem@0.2.11
+
+## 0.3.2
+
+### Patch Changes
+
+- Updated dependencies [9371f33]
+  - @goat-sdk/wallet-evm@0.2.9
+  - @goat-sdk/wallet-viem@0.2.10
+
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [d7ecfe6]
+  - @goat-sdk/wallet-viem@0.2.9
+
 ## 0.3.0
 
 ### Minor Changes

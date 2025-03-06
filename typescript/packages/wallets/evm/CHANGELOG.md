@@ -1,5 +1,18 @@
 # @goat-sdk/wallet-evm
 
+## 0.2.10
+
+### Patch Changes
+
+- Updated dependencies [3091a49]
+  - @goat-sdk/core@0.4.8
+
+## 0.2.9
+
+### Patch Changes
+
+- 9371f33: Extract ENS resolution to its own package
+
 ## 0.2.8
 
 ### Patch Changes
